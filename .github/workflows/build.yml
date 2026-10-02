@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK from Loose Files
 on:
   push:
     branches: [main]
@@ -9,44 +9,60 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: List ALL files in repository
-        run: find . -type f | head -50
-        
-      - name: Find and Unzip
+      # 1. Create the correct Android folder structure
+      - name: Create Android Folder Structure
         run: |
-          ZIP_FILE=$(find . -name "ck-auto-android.zip" | head -n 1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Could not find ck-auto-android.zip anywhere!"
-            echo "Here are all the zip files I found:"
-            find . -name "*.zip"
-            exit 1
-          fi
-          echo "Found zip at: $ZIP_FILE"
-          unzip -o "$ZIP_FILE" -d android
-          echo "=== Contents of android folder after unzip ==="
-          ls -la android
+          mkdir -p app/src/main/java/com/example/ckauto
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/drawable
           
+      # 2. Move the loose files into their correct homes
+      - name: Move Files to Correct Folders
+        run: |
+          # Move Kotlin files (MainActivity.kt, UssdEngine.kt, UssdService.kt)
+          mv *.kt app/src/main/java/com/example/ckauto/ 2>/dev/null || true
+          
+          # Move the Android Manifest
+          mv AndroidManifest.xml app/src/main/ 2>/dev/null || true
+          
+          # Move Resource XML files (strings.xml, ic_launcher.xml, accessibility_config.xml)
+          mv strings.xml app/src/main/res/values/ 2>/dev/null || true
+          mv ic_launcher.xml app/src/main/res/drawable/ 2>/dev/null || true
+          mv accessibility_config.xml app/src/main/res/xml/ 2>/dev/null || true
+          
+          # Move the build.gradle.kts file for the app module
+          mv build.gradle.kts app/ 2>/dev/null || true
+
+      # 3. Set up Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
           
+      # 4. Set up Gradle (This will generate the missing gradlew file!)
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
           
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-        working-directory: android
-        
+      # 5. Create a dummy settings.gradle.kts if missing (necessary for the build)
+      - name: Ensure settings.gradle.kts exists
+        run: |
+          if [ ! -f settings.gradle.kts ]; then
+            echo 'rootProject.name = "CkAuto"' > settings.gradle.kts
+            echo 'include(":app")' >> settings.gradle.kts
+          fi
+
+      # 6. Build the APK
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
-        working-directory: android
+        run: gradle assembleDebug --no-daemon
         
+      # 7. Upload the APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CK-Auto-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
