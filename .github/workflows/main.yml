@@ -22,28 +22,20 @@ jobs:
       # 2. Move your existing files to their correct homes
       - name: Move Existing Files
         run: |
-          # Move Kotlin files to the java folder
           [ -f MainActivity.kt ] && mv MainActivity.kt app/src/main/java/com/ckauto/app/ || true
           [ -f UssdEngine.kt ] && mv UssdEngine.kt app/src/main/java/com/ckauto/app/ || true
           [ -f UssdService.kt ] && mv UssdService.kt app/src/main/java/com/ckauto/app/ || true
           [ -f SmsReceiver.kt ] && mv SmsReceiver.kt app/src/main/java/com/ckauto/app/ || true
-          
-          # Move the Manifest
           [ -f AndroidManifest.xml ] && mv AndroidManifest.xml app/src/main/ || true
-          
-          # Move resource files
           [ -f strings.xml ] && mv strings.xml app/src/main/res/values/ || true
           [ -f ic_launcher.xml ] && mv ic_launcher.xml app/src/main/res/drawable/ || true
           [ -f accessibility_config.xml ] && mv accessibility_config.xml app/src/main/res/xml/ || true
-          
-          # Move the root build files
           [ -f build.gradle.kts ] && mv build.gradle.kts app/ || true
           [ -f settings.gradle.kts ] && mv settings.gradle.kts ./ || true
 
-      # 3. Create the MISSING files so the build doesn't crash
+      # 3. Create MISSING files so the build doesn't crash
       - name: Create Missing Files
         run: |
-          # Create the missing KeepAliveService.kt
           cat > app/src/main/java/com/ckauto/app/KeepAliveService.kt << 'EOF'
           package com.ckauto.app
           import android.app.Service
@@ -54,7 +46,6 @@ jobs:
           }
           EOF
 
-          # Create a basic MainActivity.kt if it's missing
           if [ ! -f app/src/main/java/com/ckauto/app/MainActivity.kt ]; then
             cat > app/src/main/java/com/ckauto/app/MainActivity.kt << 'EOF'
           package com.ckauto.app
@@ -72,7 +63,6 @@ jobs:
           EOF
           fi
 
-          # Create the activity_main.xml layout file
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -87,7 +77,6 @@ jobs:
           </LinearLayout>
           EOF
 
-          # Create a themes.xml file to satisfy the theme requirement
           mkdir -p app/src/main/res/values
           cat > app/src/main/res/values/themes.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -96,7 +85,6 @@ jobs:
           </resources>
           EOF
 
-          # Create a basic app build.gradle.kts if missing
           if [ ! -f app/build.gradle.kts ]; then
             cat > app/build.gradle.kts << 'EOF'
           plugins {
@@ -140,13 +128,20 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 5. Set up Gradle (This generates the gradlew file!)
+      # 5. Ensure the root settings.gradle.kts exists
+      - name: Ensure settings.gradle.kts exists
+        run: |
+          if [ ! -f settings.gradle.kts ]; then
+            echo 'rootProject.name = "CKAuto"' > settings.gradle.kts
+            echo 'include(":app")' >> settings.gradle.kts
+          fi
+
+      # 6. Set up Gradle and generate the wrapper
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-
-      # 6. Create the missing gradle wrapper
+          
       - name: Generate Gradle Wrapper
         run: gradle wrapper
 
